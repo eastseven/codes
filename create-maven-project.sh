@@ -1,1 +1,1 @@
-mvn archetype:generate -DgroupId=org.dongq -DartifactId=codes -DarchetypeArtifactId=maven-archetype-quickstart -DinteractiveMode=false
+mvn archetype:generate -DgroupId=org.dongq -DartifactId=demo -DarchetypeArtifactId=maven-archetype-quickstart -DinteractiveMode=false
