@@ -11,7 +11,6 @@ import java.sql.ResultSet;
 import java.sql.Types;
 import java.text.SimpleDateFormat;
 import java.util.List;
-import java.util.Random;
 import java.util.Set;
 
 import org.apache.commons.collections.CollectionUtils;
@@ -23,23 +22,43 @@ import org.apache.commons.logging.LogFactory;
 
 import com.google.common.collect.Lists;
 
-public class Main {
+public class ExportTool {
 
-	private static final Log log = LogFactory.getLog(Main.class);
+	private static final Log log = LogFactory.getLog(ExportTool.class);
 	
 	private static final String schema = "QUICKRIDE";
-	private static final String dir = "data-sql-script";
+	private static final String dataSqlScriptDir = "data-sql-script";
+	private static final String tableSqlScriptDir = "table-sql-script";
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	
-	public static void main(String[] args) throws Exception {
-		log.info("hello world");
+	/**
+	 * 生成建表脚本文件
+	 */
+	public void exportTable() {
+		try {
+			File scriptDir = new File(tableSqlScriptDir);
+			
+			if(!scriptDir.exists()) {
+				scriptDir.mkdirs();
+			} else {
+				FileUtils.deleteQuietly(scriptDir);
+				scriptDir.mkdirs();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		
-		new Main().exportData();
+		
 	}
-
+	
+	/**
+	 * 生成表数据脚本<br>
+	 * insert 格式<br>
+	 * 忽略lob类型的字段
+	 */
 	public void exportData() {
 		try {
-			File scriptDir = new File(dir);
+			File scriptDir = new File(dataSqlScriptDir);
 			
 			if(!scriptDir.exists()) {
 				scriptDir.mkdirs();
@@ -96,6 +115,11 @@ public class Main {
 		return tables;
 	}
 	
+	/**
+	 * 取得table的所有数据
+	 * @param table
+	 * @return List<String> insert 格式的sql语句集合
+	 */
 	public List<String> getDataOfTable(Table table) {
 		final String prefix = ",";
 		List<String> data = Lists.newArrayList();
@@ -146,6 +170,12 @@ public class Main {
 		return data;
 	}
 	
+	/**
+	 * 根据取出的数据类型，转换为相应格式的字符串
+	 * @param type 字段类型，同java.sql.Types
+	 * @param columnData ResultSet中取出的数据库表中的字段值
+	 * @return
+	 */
 	public String getColumnDataString(int type, Object columnData) {
 		String value = "";
 		
@@ -176,12 +206,16 @@ public class Main {
 		return value;
 	}
 	
+	/**
+	 * 为当前表创建一个数据脚本
+	 * @param table
+	 */
 	public void createDataFileOfTable(Table table) {
 		try {
 			List<String> list = getDataOfTable(table);
 			
 			String filename = table.getName() + ".sql";
-			File file = new File(dir+"/"+filename);
+			File file = new File(dataSqlScriptDir+"/"+filename);
 			if(!file.exists()) file.createNewFile();
 			FileWriter writer = new FileWriter(file, true);
 			BufferedWriter buffer = new BufferedWriter(writer);
@@ -198,107 +232,4 @@ public class Main {
 		}
 	}
 	
-	public void test2() throws Exception {
-		List<Table> tables = getTables();
-		
-		Connection conn = new ConnectionFactory().getConnect();
-		ResultSet rs = null;
-		PreparedStatement stmt = null;
-		
-		Table table = tables.get(new Random().nextInt(tables.size()));
-		System.out.println(table);
-		String sql = table.getSelectSQL();
-		stmt = conn.prepareStatement(sql);
-		rs = stmt.executeQuery();
-		rs.setFetchSize(10);
-		final String prefix = ",";
-
-		List<String> list = Lists.newArrayList();
-		//final String encoding = "utf-8";
-		//Writer writer = new FileWriter(table.getName()+".sql");
-		//WriterOutputStream output = new WriterOutputStream(writer);
-		
-		while(rs.next()) {
-			String insert = "insert into " + table.getName() + "(";
-			String values = " values(";
-			String data = "";
-			String columns = "";
-			for (Column c : table.getColumns()) {
-				columns += ","+c.getName();
-				Object columnData = rs.getObject(c.getName());
-				data += "," + getColumnDataString(c.getDataType(), columnData);
-			}
-			
-			if(data.startsWith(prefix)) data = data.replaceFirst(prefix, "");
-			values += data + ");";
-			if(columns.startsWith(prefix)) columns = columns.replaceFirst(prefix, "");
-			insert += columns + ")";
-			
-			data = insert + values + "\n";
-			System.out.println(data);
-			
-			list.add(data);
-			//IOUtils.write(data, output, encoding);
-		}
-		
-		//IOUtils.closeQuietly(output);
-		DbUtils.closeQuietly(conn, stmt, rs);
-		
-		String filename = table.getName() + ".sql";
-		File file = new File(filename);
-		if(!file.exists()) file.createNewFile();
-		FileWriter writer = new FileWriter(file, true);
-		BufferedWriter buffer = new BufferedWriter(writer);
-		for (String str : list) {
-			buffer.write(str);
-		}
-		IOUtils.closeQuietly(buffer);
-	}
-	
-	public void test() throws Exception {
-		Connection conn = new ConnectionFactory().getConnect();
-		ResultSet rs = null;
-		
-		DatabaseMetaData dmd = conn.getMetaData();
-		log.info(dmd.getDatabaseProductVersion());
-		
-		//Catalogs
-		rs = dmd.getCatalogs();
-		while(rs.next()) {
-			log.info("TABLE_CAT: "+rs.getString("TABLE_CAT"));
-		}
-		DbUtils.close(rs);
-		
-		//Schemas 
-		rs = dmd.getSchemas();
-		while(rs.next()) {
-			String schem = rs.getString("TABLE_SCHEM");
-			log.info("TABLE_SCHEM: "+schem);
-		}
-		DbUtils.close(rs);
-		
-		//Tables
-		String catalog = null;
-		String schemaPattern = "QUICKRIDE";
-		String tableNamePattern = null;
-		String[] types = {"TABLE"};
-		rs = dmd.getTables(catalog, schemaPattern, tableNamePattern, types);
-		while(rs.next()) {
-			String tableName = rs.getString("TABLE_NAME");
-			log.info(tableName);
-		}
-		DbUtils.close(rs);
-		
-		//Columns
-		rs = dmd.getColumns(catalog, schemaPattern, "RENT_ORDER", null);
-		while(rs.next()) {
-			String name = rs.getString("COLUMN_NAME");
-			int dataType = rs.getInt("DATA_TYPE");
-			String typeName = rs.getString("TYPE_NAME");
-			log.info(name + " " + typeName+"["+dataType+"] ");
-		}
-		DbUtils.close(rs);
-		
-		DbUtils.close(conn);
-	}
 }
