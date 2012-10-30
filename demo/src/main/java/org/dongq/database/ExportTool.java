@@ -3,6 +3,7 @@ package org.dongq.database;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.math.BigInteger;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Date;
@@ -25,30 +26,41 @@ import com.google.common.collect.Lists;
 public class ExportTool {
 
 	private static final Log log = LogFactory.getLog(ExportTool.class);
+	
 	private static final String prefix = ",";
 	private static final String schema = "QUICKRIDE";
-	private static final String dataSqlScriptDir = "data-sql-script";
-	private static final String tableSqlScriptDir = "table-sql-script";
+	
+	public static final String dataSqlScriptDir = "data";
+	public static final String tableSqlScriptDir = "table";
+	public static final String sqlScriptDir = "sql-script";
+	public static final String createDatabaseScript = "create-database.sql";
+	
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	
+	public void start() {
+		String password = new SimpleDateFormat("yyyyMMddHHmm").format(new java.util.Date());
+		String username = "quickride"+password;
+		
+		mkdir(sqlScriptDir);
+		List<Table> tables = getTables();
+		
+		//导出表、导出数据
+		exportTable(tables);
+		exportData(tables);
+		
+		//建库、导入表、导入数据
+		String dbScript = generateCreateDatabaseScript(username, password);
+		generateCreateDatabaseScriptFile(dbScript);
+		
+		
+	}
 	
 	/**
 	 * 生成建表脚本文件
 	 */
-	public void exportTable() {
-		try {
-			File scriptDir = new File(tableSqlScriptDir);
-			
-			if(!scriptDir.exists()) {
-				scriptDir.mkdirs();
-			} else {
-				FileUtils.deleteQuietly(scriptDir);
-				scriptDir.mkdirs();
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+	public void exportTable(List<Table> tables) {
+		mkdir(sqlScriptDir + "/" + tableSqlScriptDir);
 		
-		List<Table> tables = getTables();
 		for (Table table : tables) {
 			String tableName = table.getName();
 			String script = createTableScript(table);
@@ -57,30 +69,54 @@ public class ExportTool {
 		
 		log.info("export table script finish...");
 	}
-	
+
 	/**
 	 * 生成表数据脚本<br>
 	 * insert 格式<br>
 	 * 忽略lob类型的字段
 	 */
-	public void exportData() {
-		try {
-			File scriptDir = new File(dataSqlScriptDir);
-			
-			if(!scriptDir.exists()) {
-				scriptDir.mkdirs();
-			} else {
-				FileUtils.deleteQuietly(scriptDir);
-				scriptDir.mkdirs();
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		List<Table> tables = getTables();
+	public void exportData(List<Table> tables) {
+		mkdir(sqlScriptDir + "/" + dataSqlScriptDir);
+		
 		for (Table table : tables) {
 			createDataFileOfTable(table);
 		}
+		
 		log.info("export data finish...");
+	}
+
+	public List<Sequence> getSequences() {
+		List<Sequence> sequences = Lists.newArrayList();
+		
+		ResultSet rs = null;
+		Connection conn = null;
+		PreparedStatement stmt = null;
+		final String sql = "select * from all_sequences where SEQUENCE_OWNER = ? order by SEQUENCE_NAME asc";
+		
+		try {
+			conn = new ConnectionFactory().getConnect();
+			stmt = conn.prepareStatement(sql);
+			stmt.setString(1, schema);
+			rs = stmt.executeQuery();
+			
+			while(rs.next()) {
+				Sequence seq = new Sequence();
+				seq.setName(rs.getString("SEQUENCE_NAME"));
+				seq.setIncrementBy(rs.getInt("INCREMENT_BY"));
+				seq.setCacheSize(rs.getInt("CACHE_SIZE"));
+				seq.setLastNumber(rs.getInt("LAST_NUMBER"));
+				seq.setMaxValue(new BigInteger(rs.getObject("MAX_VALUE").toString()));
+				seq.setMinValue(rs.getInt("MIN_VALUE"));
+				
+				sequences.add(seq);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			DbUtils.closeQuietly(conn, stmt, rs);
+		}
+		
+		return sequences;
 	}
 	
 	public List<Table> getTables() {
@@ -178,42 +214,6 @@ public class ExportTool {
 	}
 	
 	/**
-	 * 根据取出的数据类型，转换为相应格式的字符串
-	 * @param type 字段类型，同java.sql.Types
-	 * @param columnData ResultSet中取出的数据库表中的字段值
-	 * @return
-	 */
-	public String getColumnDataString(int type, Object columnData) {
-		String value = "";
-		
-		if(columnData == null) return "null";
-		
-		switch (type) {
-		case Types.DATE:
-			Date d = (Date) columnData;
-			value = " to_date('"+sdf.format(d)+"','yyyy-MM-dd HH24:mm:ss') ";
-			break;
-		case Types.DECIMAL:
-			value = columnData.toString();
-			break;
-		case Types.VARCHAR:
-			value = "'"+columnData+"'";
-			break;
-		case Types.BLOB:
-			value = "null";
-			break;
-		case Types.CLOB:
-			value = "null";
-			break;
-		default:
-			
-			break;
-		}
-		
-		return value;
-	}
-	
-	/**
 	 * 为当前表创建一个数据脚本
 	 * @param table
 	 */
@@ -222,7 +222,7 @@ public class ExportTool {
 			List<String> list = getDataOfTable(table);
 			
 			String filename = table.getName() + ".sql";
-			File file = new File(dataSqlScriptDir + "/" + filename);
+			File file = new File(sqlScriptDir + "/" + dataSqlScriptDir + "/" + filename);
 			if(!file.exists()) file.createNewFile();
 			FileWriter writer = new FileWriter(file, true);
 			BufferedWriter buffer = new BufferedWriter(writer);
@@ -272,7 +272,7 @@ public class ExportTool {
 		try {
 			
 			String filename = tableName + ".sql";
-			File file = new File(tableSqlScriptDir + "/" + filename);
+			File file = new File(sqlScriptDir + "/" + tableSqlScriptDir + "/" + filename);
 			if(!file.exists()) file.createNewFile();
 			FileWriter writer = new FileWriter(file, true);
 			BufferedWriter buffer = new BufferedWriter(writer);
@@ -287,4 +287,92 @@ public class ExportTool {
 		}
 	}
 	
+	public void generateCreateDatabaseScriptFile(String script) {
+		try {
+			
+			mkdir(sqlScriptDir);
+			
+			String filename = sqlScriptDir + "/" + createDatabaseScript;
+			File file = new File(filename);
+			if(!file.exists()) file.createNewFile();
+			FileWriter writer = new FileWriter(file, true);
+			BufferedWriter buffer = new BufferedWriter(writer);
+			buffer.write(script);
+			buffer.newLine();
+			IOUtils.closeQuietly(buffer);
+			
+			long fileSize = FileUtils.sizeOf(file);
+			log.info(filename + " size " + FileUtils.byteCountToDisplaySize(fileSize));
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public String generateCreateDatabaseScript(String username, String password) {
+		String script = "";
+		//1.create user
+		//2.grant session
+		//3.grant create table
+		//4.grant tablespace
+		script += "create user ${username} indentified by ${password} ;";
+		script += "grant create session to ${username};";
+		script += "grant create table to ${username};";
+		script += "grant unlimited tablespace to ${username};";
+
+		final String regex1 = "\\$\\{username\\}";
+		final String regex2 = "\\$\\{password\\}";
+		script = script.replaceAll(regex1, username);
+		script = script.replaceAll(regex2, password);
+		
+		return script;
+	}
+	
+	/**
+	 * 根据取出的数据类型，转换为相应格式的字符串
+	 * @param type 字段类型，同java.sql.Types
+	 * @param columnData ResultSet中取出的数据库表中的字段值
+	 * @return
+	 */
+	private String getColumnDataString(int type, Object columnData) {
+		String value = "";
+		
+		if(columnData == null) return "null";
+		
+		switch (type) {
+		case Types.DATE:
+			Date d = (Date) columnData;
+			value = " to_date('"+sdf.format(d)+"','yyyy-MM-dd HH24:mm:ss') ";
+			break;
+		case Types.DECIMAL:
+			value = columnData.toString();
+			break;
+		case Types.VARCHAR:
+			value = "'"+columnData+"'";
+			break;
+		case Types.BLOB:
+			value = "null";
+			break;
+		case Types.CLOB:
+			value = "null";
+			break;
+		default:
+			
+			break;
+		}
+		
+		return value;
+	}
+	
+	public void mkdir(String dir) {
+		try {
+			File scriptDir = new File(dir);
+			if(scriptDir.exists()) {
+				FileUtils.deleteQuietly(scriptDir);
+			}
+			scriptDir.mkdirs();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 }
