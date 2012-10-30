@@ -10,12 +10,15 @@ public class Column {
 
 	private int dataType;
 
-	public Column(int index, String name, String typeName, int dataType) {
+	private int columnSize;
+
+	public Column(int index, String name, String typeName, int dataType, int columnSize) {
 		super();
 		this.index = index;
 		this.name = name;
 		this.typeName = typeName;
 		this.dataType = dataType;
+		this.columnSize = columnSize;
 	}
 
 	public int getIndex() {
@@ -50,10 +53,19 @@ public class Column {
 		this.dataType = dataType;
 	}
 
+	public int getColumnSize() {
+		return columnSize;
+	}
+
+	public void setColumnSize(int columnSize) {
+		this.columnSize = columnSize;
+	}
+
 	@Override
 	public String toString() {
 		return "Column [index=" + index + ", name=" + name + ", typeName="
-				+ typeName + ", dataType=" + dataType + "]";
+				+ typeName + ", dataType=" + dataType + ", columnSize="
+				+ columnSize + "]";
 	}
 
 }

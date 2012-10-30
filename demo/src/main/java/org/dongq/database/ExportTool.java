@@ -25,7 +25,7 @@ import com.google.common.collect.Lists;
 public class ExportTool {
 
 	private static final Log log = LogFactory.getLog(ExportTool.class);
-	
+	private static final String prefix = ",";
 	private static final String schema = "QUICKRIDE";
 	private static final String dataSqlScriptDir = "data-sql-script";
 	private static final String tableSqlScriptDir = "table-sql-script";
@@ -48,7 +48,14 @@ public class ExportTool {
 			e.printStackTrace();
 		}
 		
+		List<Table> tables = getTables();
+		for (Table table : tables) {
+			String tableName = table.getName();
+			String script = createTableScript(table);
+			createTableScriptFile(tableName, script);
+		}
 		
+		log.info("export table script finish...");
 	}
 	
 	/**
@@ -99,7 +106,8 @@ public class ExportTool {
 						String name = rs.getString("COLUMN_NAME");
 						String typeName = rs.getString("TYPE_NAME");
 						int dataType = rs.getInt("DATA_TYPE");
-						table.getColumns().add(new Column(index, name, typeName, dataType));
+						int columnSize = rs.getInt("COLUMN_SIZE");
+						table.getColumns().add(new Column(index, name, typeName, dataType, columnSize));
 						index++;
 					}
 				}
@@ -121,7 +129,6 @@ public class ExportTool {
 	 * @return List<String> insert 格式的sql语句集合
 	 */
 	public List<String> getDataOfTable(Table table) {
-		final String prefix = ",";
 		List<String> data = Lists.newArrayList();
 		
 		Connection conn = null;
@@ -215,7 +222,7 @@ public class ExportTool {
 			List<String> list = getDataOfTable(table);
 			
 			String filename = table.getName() + ".sql";
-			File file = new File(dataSqlScriptDir+"/"+filename);
+			File file = new File(dataSqlScriptDir + "/" + filename);
 			if(!file.exists()) file.createNewFile();
 			FileWriter writer = new FileWriter(file, true);
 			BufferedWriter buffer = new BufferedWriter(writer);
@@ -223,6 +230,54 @@ public class ExportTool {
 				buffer.write(str);
 				buffer.newLine();
 			}
+			IOUtils.closeQuietly(buffer);
+			
+			long fileSize = FileUtils.sizeOf(file);
+			log.info(filename + " size " + FileUtils.byteCountToDisplaySize(fileSize));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * 生成建表脚本
+	 * @param table
+	 * @return
+	 */
+	public String createTableScript(Table table) {
+		String script = "create table " + table.getName() + " (";
+		
+		String columnsContent = "";
+		Set<Column> columns = table.getColumns();
+		for (Column column : columns) {
+			columnsContent += "," + column.getName() + " " + column.getTypeName();
+			if(column.getDataType() == Types.DATE) continue;
+			columnsContent += "("+column.getColumnSize()+")";
+		}
+		
+		if(columnsContent.startsWith(prefix)) {
+			columnsContent = columnsContent.replaceFirst(prefix, "");
+		}
+		script += columnsContent + ");";
+		
+		return script;
+	}
+	
+	/**
+	 * 创建建表脚本文件
+	 * @param tableName
+	 * @param script
+	 */
+	public void createTableScriptFile(String tableName, String script) {
+		try {
+			
+			String filename = tableName + ".sql";
+			File file = new File(tableSqlScriptDir + "/" + filename);
+			if(!file.exists()) file.createNewFile();
+			FileWriter writer = new FileWriter(file, true);
+			BufferedWriter buffer = new BufferedWriter(writer);
+			buffer.write(script);
+			buffer.newLine();
 			IOUtils.closeQuietly(buffer);
 			
 			long fileSize = FileUtils.sizeOf(file);
