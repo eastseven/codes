@@ -76,6 +76,10 @@ public class Sequence {
 		this.lastNumber = lastNumber;
 	}
 
+	public String getFileName() {
+		return this.name + ".sql";
+	}
+	
 	public String getScript() {
 		String script = "create sequence";
 		

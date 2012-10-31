@@ -34,6 +34,10 @@ public class Table {
 		return "select * from " + this.name + " order by "+this.columns.iterator().next().getName()+" asc";
 	}
 	
+	public String getFileName() {
+		return this.name + ".sql";
+	}
+	
 	@Override
 	public String toString() {
 		return "Table [name=" + name + ", columns=" + columns + "]";

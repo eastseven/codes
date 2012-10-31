@@ -3,6 +3,7 @@ package org.dongq.database;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -18,6 +19,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.dbutils.DbUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -30,10 +32,11 @@ public class ExportTool {
 	private static final String prefix = ",";
 	private static final String schema = "QUICKRIDE";
 	
-	public static final String dataSqlScriptDir = "data";
-	public static final String tableSqlScriptDir = "table";
 	public static final String sqlScriptDir = "sql-script";
-	public static final String createDatabaseScript = "create-database.sql";
+	public static final String dataDir = sqlScriptDir + "/data";
+	public static final String tableDir = sqlScriptDir + "/table";
+	public static final String sequenceDir = sqlScriptDir + "/sequence";
+	public static final String databaseFileName = sqlScriptDir + "/database.sql";
 	
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	
@@ -41,30 +44,29 @@ public class ExportTool {
 		String password = new SimpleDateFormat("yyyyMMddHHmm").format(new java.util.Date());
 		String username = "quickride"+password;
 		
-		mkdir(sqlScriptDir);
+		mkdirs();
+		
 		List<Table> tables = getTables();
+		List<Sequence> sequences = getSequences();
 		
 		//导出表、导出数据
 		exportTable(tables);
 		exportData(tables);
+		exportSequence(sequences);
 		
 		//建库、导入表、导入数据
-		String dbScript = generateCreateDatabaseScript(username, password);
-		generateCreateDatabaseScriptFile(dbScript);
-		
-		
+		String dbScript = generateDatabaseScript(username, password);
+		createDatabaseFile(databaseFileName, dbScript);
 	}
 	
 	/**
 	 * 生成建表脚本文件
 	 */
 	public void exportTable(List<Table> tables) {
-		mkdir(sqlScriptDir + "/" + tableSqlScriptDir);
-		
 		for (Table table : tables) {
-			String tableName = table.getName();
-			String script = createTableScript(table);
-			createTableScriptFile(tableName, script);
+			String filename = table.getFileName();
+			String script = generateTableScript(table);
+			createTableFile(filename, script);
 		}
 		
 		log.info("export table script finish...");
@@ -76,13 +78,21 @@ public class ExportTool {
 	 * 忽略lob类型的字段
 	 */
 	public void exportData(List<Table> tables) {
-		mkdir(sqlScriptDir + "/" + dataSqlScriptDir);
-		
 		for (Table table : tables) {
-			createDataFileOfTable(table);
+			createDataFile(table);
 		}
 		
 		log.info("export data finish...");
+	}
+	
+	public void exportSequence(List<Sequence> sequences) {
+		for (Sequence sequence : sequences) {
+			String filename = sequence.getFileName();
+			String script = sequence.getScript();
+			createSequenceFile(filename, script);
+		}
+
+		log.info("export sequence finish...");
 	}
 
 	public List<Sequence> getSequences() {
@@ -164,7 +174,7 @@ public class ExportTool {
 	 * @param table
 	 * @return List<String> insert 格式的sql语句集合
 	 */
-	public List<String> getDataOfTable(Table table) {
+	public List<String> generateDataScript(Table table) {
 		List<String> data = Lists.newArrayList();
 		
 		Connection conn = null;
@@ -200,7 +210,6 @@ public class ExportTool {
 				values += valuesContent + ");";
 				
 				String insertSql = insert + values;
-				//log.info(insertSql);
 				data.add(insertSql);
 			}
 			
@@ -214,37 +223,11 @@ public class ExportTool {
 	}
 	
 	/**
-	 * 为当前表创建一个数据脚本
-	 * @param table
-	 */
-	public void createDataFileOfTable(Table table) {
-		try {
-			List<String> list = getDataOfTable(table);
-			
-			String filename = table.getName() + ".sql";
-			File file = new File(sqlScriptDir + "/" + dataSqlScriptDir + "/" + filename);
-			if(!file.exists()) file.createNewFile();
-			FileWriter writer = new FileWriter(file, true);
-			BufferedWriter buffer = new BufferedWriter(writer);
-			for (String str : list) {
-				buffer.write(str);
-				buffer.newLine();
-			}
-			IOUtils.closeQuietly(buffer);
-			
-			long fileSize = FileUtils.sizeOf(file);
-			log.info(filename + " size " + FileUtils.byteCountToDisplaySize(fileSize));
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-	
-	/**
 	 * 生成建表脚本
 	 * @param table
 	 * @return
 	 */
-	public String createTableScript(Table table) {
+	public String generateTableScript(Table table) {
 		String script = "create table " + table.getName() + " (";
 		
 		String columnsContent = "";
@@ -264,60 +247,99 @@ public class ExportTool {
 	}
 	
 	/**
-	 * 创建建表脚本文件
-	 * @param tableName
+	 * 为当前表创建一个数据脚本<br>
+	 * sql-script/data/filename.sql
+	 * @param table
+	 */
+	public void createDataFile(Table table) {
+		try {
+			List<String> list = generateDataScript(table);
+			
+			String filename = table.getFileName();
+			File file = new File(dataDir + "/" + filename);
+			if(!file.exists()) file.createNewFile();
+			FileWriter writer = new FileWriter(file, true);
+			BufferedWriter buffer = new BufferedWriter(writer);
+			for (String str : list) {
+				buffer.write(str);
+				buffer.newLine();
+			}
+			IOUtils.closeQuietly(buffer);
+			
+			long fileSize = FileUtils.sizeOf(file);
+			log.info(file.getAbsolutePath() + " size " + FileUtils.byteCountToDisplaySize(fileSize));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * 创建Table脚本文件<br>
+	 * sql-script/table/filename.sql
+	 * @param filename
 	 * @param script
 	 */
-	public void createTableScriptFile(String tableName, String script) {
+	public void createTableFile(String filename, String script) {
 		try {
-			
-			String filename = tableName + ".sql";
-			File file = new File(sqlScriptDir + "/" + tableSqlScriptDir + "/" + filename);
-			if(!file.exists()) file.createNewFile();
-			FileWriter writer = new FileWriter(file, true);
-			BufferedWriter buffer = new BufferedWriter(writer);
-			buffer.write(script);
-			buffer.newLine();
-			IOUtils.closeQuietly(buffer);
-			
-			long fileSize = FileUtils.sizeOf(file);
-			log.info(filename + " size " + FileUtils.byteCountToDisplaySize(fileSize));
+			filename = tableDir + "/" + filename;
+			createFile(null, filename, script);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
 	
-	public void generateCreateDatabaseScriptFile(String script) {
+	/**
+	 * 创建Sequence脚本文件<br>
+	 * sql-script/sequence/filename.sql
+	 * @param filename
+	 * @param script
+	 */
+	public void createSequenceFile(String filename, String script) {
 		try {
-			
-			mkdir(sqlScriptDir);
-			
-			String filename = sqlScriptDir + "/" + createDatabaseScript;
-			File file = new File(filename);
-			if(!file.exists()) file.createNewFile();
-			FileWriter writer = new FileWriter(file, true);
-			BufferedWriter buffer = new BufferedWriter(writer);
-			buffer.write(script);
-			buffer.newLine();
-			IOUtils.closeQuietly(buffer);
-			
-			long fileSize = FileUtils.sizeOf(file);
-			log.info(filename + " size " + FileUtils.byteCountToDisplaySize(fileSize));
-			
+			filename = sequenceDir + "/" + filename;
+			createFile(null, filename, script);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
 	
-	public String generateCreateDatabaseScript(String username, String password) {
+	/**
+	 * 创建Database脚本文件<br>
+	 * sql-script/database.sql
+	 * @param filename
+	 * @param script
+	 */
+	public void createDatabaseFile(String filename, String script) {
+		try {
+			createFile(null, filename, script);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	protected void createFile(String dir, String filename, String script) throws IOException {
+		
+		File file = new File(filename);
+		if(!file.exists()) file.createNewFile();
+		FileWriter writer = new FileWriter(file, true);
+		BufferedWriter buffer = new BufferedWriter(writer);
+		buffer.write(script);
+		buffer.newLine();
+		IOUtils.closeQuietly(buffer);
+		
+		long fileSize = FileUtils.sizeOf(file);
+		log.info(file.getAbsolutePath() + " size " + FileUtils.byteCountToDisplaySize(fileSize));
+	}
+	
+	public String generateDatabaseScript(String username, String password) {
 		String script = "";
 		//1.create user
+		script += "create user ${username} identified by ${password} ;";
 		//2.grant session
-		//3.grant create table
-		//4.grant tablespace
-		script += "create user ${username} indentified by ${password} ;";
 		script += "grant create session to ${username};";
+		//3.grant create table
 		script += "grant create table to ${username};";
+		//4.grant tablespace
 		script += "grant unlimited tablespace to ${username};";
 
 		final String regex1 = "\\$\\{username\\}";
@@ -364,13 +386,22 @@ public class ExportTool {
 		return value;
 	}
 	
+	public void mkdirs() {
+		mkdir(sqlScriptDir);
+		
+		mkdir(dataDir);
+		mkdir(tableDir);
+		mkdir(sequenceDir);
+	}
+	
 	public void mkdir(String dir) {
 		try {
 			File scriptDir = new File(dir);
 			if(scriptDir.exists()) {
 				FileUtils.deleteQuietly(scriptDir);
 			}
-			scriptDir.mkdirs();
+			boolean bln = scriptDir.mkdirs();
+			log.info(scriptDir.getAbsolutePath() + " mkdirs " + bln);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
