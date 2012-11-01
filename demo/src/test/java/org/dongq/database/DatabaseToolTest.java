@@ -1,18 +1,10 @@
 package org.dongq.database;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.util.List;
 import java.util.Random;
 
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.dbutils.DbUtils;
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -33,7 +25,9 @@ public class DatabaseToolTest {
 
 	@Test
 	public void testStart() {
+		log.info("\nExport Tool Starting...\n");
 		tool.start();
+		log.info("\nExport Tool Done\n");
 	}
 	
 //	@Test
