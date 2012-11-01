@@ -88,6 +88,7 @@ public class Sequence {
 		script += " maxvalue " + this.maxValue.toString();
 		script += " start with " + (this.lastNumber + 2);//避免id重复，以防万一
 		script += " increment by " + this.incrementBy;
+		if(this.cacheSize == 0) this.cacheSize = 20;
 		script += " cache " + this.cacheSize + ";";
 		return script;
 	}
