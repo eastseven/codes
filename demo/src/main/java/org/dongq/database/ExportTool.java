@@ -51,6 +51,8 @@ public class ExportTool {
 		exportData(tables);
 		exportSequence(sequences);
 		
+		String script = generateDatabaseScript();
+		createDatabaseFile(databaseFileName, script);
 	}
 	
 	/**
@@ -277,6 +279,7 @@ public class ExportTool {
 	 */
 	public void createTableFile(String filename, String script) {
 		try {
+			filename = tableDir + "/" + filename;
 			createFile(filename, script);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -291,6 +294,7 @@ public class ExportTool {
 	 */
 	public void createSequenceFile(String filename, String script) {
 		try {
+			filename = sequenceDir + "/" + filename;
 			createFile(filename, script);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -325,7 +329,7 @@ public class ExportTool {
 		log.info(file.getAbsolutePath() + " size " + FileUtils.byteCountToDisplaySize(fileSize));
 	}
 	
-	public String generateDatabaseScript(String username, String password) {
+	public String generateDatabaseScript() {
 		String script = "";
 		//1.create user
 		script += "create user ${username} identified by ${password} ;";
