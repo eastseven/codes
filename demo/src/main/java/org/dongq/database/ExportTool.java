@@ -104,7 +104,7 @@ public class ExportTool {
 		final String sql = "select * from all_sequences where SEQUENCE_OWNER = ? order by SEQUENCE_NAME asc";
 		
 		try {
-			conn = new ConnectionFactory().getConnect();
+			conn = new JdbcConnectionFactory().getConnect();
 			stmt = conn.prepareStatement(sql);
 			stmt.setString(1, schema);
 			rs = stmt.executeQuery();
@@ -132,7 +132,7 @@ public class ExportTool {
 	public List<Table> getTables() {
 		List<Table> tables = Lists.newArrayList();
 		try {
-			Connection conn = new ConnectionFactory().getConnect();
+			Connection conn = new JdbcConnectionFactory().getConnect();
 			DatabaseMetaData dmd = conn.getMetaData();
 			log.info(dmd.getDatabaseProductVersion());
 			ResultSet rs = dmd.getTables(null, schema, null, new String[] {"TABLE"});
@@ -186,7 +186,7 @@ public class ExportTool {
 			final String sql = table.getSelectSQL();
 			final Set<Column> columns = table.getColumns();
 			
-			conn = new ConnectionFactory().getConnect();
+			conn = new JdbcConnectionFactory().getConnect();
 			stmt = conn.prepareStatement(sql);
 			rs = stmt.executeQuery();
 			
