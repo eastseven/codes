@@ -19,7 +19,6 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.dbutils.DbUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -41,8 +40,6 @@ public class ExportTool {
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	
 	public void start() {
-		String password = new SimpleDateFormat("yyyyMMddHHmm").format(new java.util.Date());
-		String username = "quickride"+password;
 		
 		mkdirs();
 		
@@ -54,9 +51,6 @@ public class ExportTool {
 		exportData(tables);
 		exportSequence(sequences);
 		
-		//建库、导入表、导入数据
-		String dbScript = generateDatabaseScript(username, password);
-		createDatabaseFile(databaseFileName, dbScript);
 	}
 	
 	/**
@@ -104,7 +98,7 @@ public class ExportTool {
 		final String sql = "select * from all_sequences where SEQUENCE_OWNER = ? order by SEQUENCE_NAME asc";
 		
 		try {
-			conn = new JdbcConnectionFactory().getConnect();
+			conn = JdbcConnectionFactory.getConnect();
 			stmt = conn.prepareStatement(sql);
 			stmt.setString(1, schema);
 			rs = stmt.executeQuery();
@@ -132,7 +126,7 @@ public class ExportTool {
 	public List<Table> getTables() {
 		List<Table> tables = Lists.newArrayList();
 		try {
-			Connection conn = new JdbcConnectionFactory().getConnect();
+			Connection conn = JdbcConnectionFactory.getConnect();
 			DatabaseMetaData dmd = conn.getMetaData();
 			log.info(dmd.getDatabaseProductVersion());
 			ResultSet rs = dmd.getTables(null, schema, null, new String[] {"TABLE"});
@@ -186,7 +180,7 @@ public class ExportTool {
 			final String sql = table.getSelectSQL();
 			final Set<Column> columns = table.getColumns();
 			
-			conn = new JdbcConnectionFactory().getConnect();
+			conn = JdbcConnectionFactory.getConnect();
 			stmt = conn.prepareStatement(sql);
 			rs = stmt.executeQuery();
 			
@@ -235,6 +229,8 @@ public class ExportTool {
 		for (Column column : columns) {
 			columnsContent += "," + column.getName() + " " + column.getTypeName();
 			if(column.getDataType() == Types.DATE) continue;
+			if(column.getDataType() == Types.CLOB) continue;
+			if(column.getDataType() == Types.BLOB) continue;
 			columnsContent += "("+column.getColumnSize()+")";
 		}
 		
@@ -254,7 +250,7 @@ public class ExportTool {
 	public void createDataFile(Table table) {
 		try {
 			List<String> list = generateDataScript(table);
-			
+			if(CollectionUtils.isEmpty(list)) return;
 			String filename = table.getFileName();
 			File file = new File(dataDir + "/" + filename);
 			if(!file.exists()) file.createNewFile();
@@ -281,8 +277,7 @@ public class ExportTool {
 	 */
 	public void createTableFile(String filename, String script) {
 		try {
-			filename = tableDir + "/" + filename;
-			createFile(null, filename, script);
+			createFile(filename, script);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -296,8 +291,7 @@ public class ExportTool {
 	 */
 	public void createSequenceFile(String filename, String script) {
 		try {
-			filename = sequenceDir + "/" + filename;
-			createFile(null, filename, script);
+			createFile(filename, script);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -311,13 +305,13 @@ public class ExportTool {
 	 */
 	public void createDatabaseFile(String filename, String script) {
 		try {
-			createFile(null, filename, script);
+			createFile(filename, script);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
 	
-	protected void createFile(String dir, String filename, String script) throws IOException {
+	protected void createFile(String filename, String script) throws IOException {
 		
 		File file = new File(filename);
 		if(!file.exists()) file.createNewFile();
@@ -336,17 +330,8 @@ public class ExportTool {
 		//1.create user
 		script += "create user ${username} identified by ${password} ;";
 		//2.grant session
-		script += "grant create session to ${username};";
-		//3.grant create table
-		script += "grant create table to ${username};";
-		//4.grant tablespace
-		script += "grant unlimited tablespace to ${username};";
+		script += "grant connect, resource, dba to ${username};";
 
-		final String regex1 = "\\$\\{username\\}";
-		final String regex2 = "\\$\\{password\\}";
-		script = script.replaceAll(regex1, username);
-		script = script.replaceAll(regex2, password);
-		
 		return script;
 	}
 	
@@ -364,7 +349,7 @@ public class ExportTool {
 		switch (type) {
 		case Types.DATE:
 			Date d = (Date) columnData;
-			value = " to_date('"+sdf.format(d)+"','yyyy-MM-dd HH24:mm:ss') ";
+			value = " to_date('"+sdf.format(d)+"','yyyy-mm-dd hh24:mi:ss') ";
 			break;
 		case Types.DECIMAL:
 			value = columnData.toString();

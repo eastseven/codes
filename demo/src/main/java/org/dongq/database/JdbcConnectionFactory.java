@@ -9,31 +9,36 @@ import java.util.Properties;
 
 public class JdbcConnectionFactory {
 
-	private Connection conn;
+	private static Properties config = new Properties();
 	
-	private Properties loadProperties(String fileName) {
-		Properties p = new Properties();
-		InputStream in = this.getClass().getClassLoader().getResourceAsStream(fileName);
+	static {
+		try {
+			InputStream in = JdbcConnectionFactory.class.getClassLoader().getResourceAsStream("jdbc.properties");
+			config.load(in);
+			in.close();
+			
+			Class.forName(config.getProperty("jdbc.driverClassName"));
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static Properties loadProperties(String fileName) {
+		InputStream in = JdbcConnectionFactory.class.getClassLoader().getResourceAsStream(fileName);
 		if (in != null) {
 			try {
-				p.load(in);
+				config.load(in);
 				in.close();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
-		return p;
+		return config;
 	}
 	
-	public Connection getConnect() throws ClassNotFoundException, SQLException {
-		if (this.conn == null) {
-			Properties p = loadProperties("jdbc.properties");
-			Class.forName(p.getProperty("jdbc.driverClassName"));
-			this.conn = DriverManager.getConnection(p.getProperty("jdbc.url"),
-													p.getProperty("jdbc.username"), 
-													p.getProperty("jdbc.password"));
-		}
-		return this.conn;
+	public static Connection getConnect() throws ClassNotFoundException, SQLException {
+		return DriverManager.getConnection(config.getProperty("jdbc.url"), config.getProperty("jdbc.username"), config.getProperty("jdbc.password"));
 	}
 	
 }
