@@ -36,6 +36,7 @@ public class ExportTool {
 	public static final String tableDir = sqlScriptDir + "/table";
 	public static final String sequenceDir = sqlScriptDir + "/sequence";
 	public static final String databaseFileName = sqlScriptDir + "/database.sql";
+	public static final String allDataFileName = sqlScriptDir + "/all-data.sql";
 	
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	
@@ -77,8 +78,28 @@ public class ExportTool {
 		for (Table table : tables) {
 			createDataFile(table);
 		}
-		
 		log.info("export data finish...");
+		
+		try {
+			File all = new File(allDataFileName);
+			
+			if(!all.exists()) all.createNewFile();
+			
+			FileWriter writer = new FileWriter(all, true);
+			BufferedWriter buffer = new BufferedWriter(writer);
+			
+			File dir = new File(dataDir);
+			File[] files = dir.listFiles();
+			for (File file : files) {
+				String str = FileUtils.readFileToString(file, "utf-8");
+				buffer.write(str);
+			}
+			
+			IOUtils.closeQuietly(buffer);
+			IOUtils.closeQuietly(writer);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 	
 	public void exportSequence(List<Sequence> sequences) {
@@ -263,7 +284,7 @@ public class ExportTool {
 				buffer.newLine();
 			}
 			IOUtils.closeQuietly(buffer);
-			
+			IOUtils.closeQuietly(writer);
 			long fileSize = FileUtils.sizeOf(file);
 			log.info(file.getAbsolutePath() + " size " + FileUtils.byteCountToDisplaySize(fileSize));
 		} catch (Exception e) {
@@ -324,7 +345,7 @@ public class ExportTool {
 		buffer.write(script);
 		buffer.newLine();
 		IOUtils.closeQuietly(buffer);
-		
+		IOUtils.closeQuietly(writer);
 		long fileSize = FileUtils.sizeOf(file);
 		log.info(file.getAbsolutePath() + " size " + FileUtils.byteCountToDisplaySize(fileSize));
 	}
@@ -361,6 +382,9 @@ public class ExportTool {
 		case Types.VARCHAR:
 			value = "'"+columnData+"'";
 			break;
+		case Types.CHAR:
+			value = "'"+columnData+"'";
+			break;
 		case Types.BLOB:
 			value = "null";
 			break;
@@ -368,7 +392,7 @@ public class ExportTool {
 			value = "null";
 			break;
 		default:
-			
+			value = "null";
 			break;
 		}
 		
