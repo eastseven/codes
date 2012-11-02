@@ -8,6 +8,7 @@ import org.apache.commons.logging.LogFactory;
 import org.junit.Before;
 import org.junit.Test;
 
+//select username from all_users where username like 'QUICKRIDE%' order by username asc;
 public class DatabaseToolTest {
 
 	private static final Log log = LogFactory.getLog(DatabaseToolTest.class);
