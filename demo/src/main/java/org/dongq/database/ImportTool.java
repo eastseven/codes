@@ -33,6 +33,32 @@ public class ImportTool {
 		importUser(username, password);
 		importSequences(username, password);
 		importTables(username, password);
+		
+		check(username, password);
+	}
+	
+	public void check(String username, String password) {
+		
+		try {
+			
+			//seq
+			String sql = "select count(1) from all_sequences where sequence_owner = '"+ExportTool.schema+"'";
+			int sequnecesOrigin = query(sql, JdbcConnectionFactory.getConnect());
+			sql = "select count(1) from all_sequences where sequence_owner = '"+username.toUpperCase()+"'";
+			int sequnecesNew = query(sql, JdbcConnectionFactory.getConnect(username, password));
+			log.info("origin sequences is " + sequnecesOrigin + ", new sequences is " + sequnecesNew);
+			
+			//table
+			sql = "select count(1) from all_tables where owner = '"+ExportTool.schema+"'";
+			int tablesOrigin = query(sql, JdbcConnectionFactory.getConnect());
+			sql = "select count(1) from all_tables where owner = '"+username.toUpperCase()+"'";
+			int tablesNew = query(sql, JdbcConnectionFactory.getConnect(username, password));
+			log.info("origin tables is " + tablesOrigin + ", new tables is " + tablesNew);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
 	}
 	
 	public void importUser(String username, String password) {
@@ -127,5 +153,31 @@ public class ImportTool {
 		} finally {
 			DbUtils.closeQuietly(conn, stmt, rs);
 		}
+	}
+	
+	public int query(String sql, Connection conn) {
+		PreparedStatement stmt = null;
+		ResultSet rs = null;
+		
+		try {
+			
+			stmt = conn.prepareStatement(sql);
+			rs = stmt.executeQuery();
+			if(rs.next()) {
+				return rs.getInt(1);
+			}
+			
+		} catch (Exception e) {
+			log.warn(e);
+			try {
+				DbUtils.rollback(conn);
+			} catch (SQLException e1) {
+				e1.printStackTrace();
+			}
+		} finally {
+			DbUtils.closeQuietly(conn, stmt, rs);
+		}
+		
+		return 0;
 	}
 }

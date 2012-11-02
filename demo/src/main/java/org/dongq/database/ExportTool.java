@@ -29,7 +29,7 @@ public class ExportTool {
 	private static final Log log = LogFactory.getLog(ExportTool.class);
 	
 	private static final String prefix = ",";
-	private static final String schema = "QUICKRIDE";
+	public static final String schema = "QUICKRIDE";
 	
 	public static final String sqlScriptDir = "sql-script";
 	public static final String dataDir = sqlScriptDir + "/data";
