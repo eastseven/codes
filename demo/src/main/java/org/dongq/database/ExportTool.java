@@ -54,6 +54,23 @@ public class ExportTool {
 		
 		String script = generateDatabaseScript();
 		createDatabaseFile(databaseFileName, script);
+		
+		sync(tables, sequences);
+	}
+	
+	/**
+	 * 比较数据库表字段
+	 */
+	public void sync(List<Table> sourceTables, List<Sequence> sourceSequences) {
+		try {
+			List<Sequence> targetSequences = getSequences(JdbcConnectionFactory.getConnectForTarget());
+			List<Table> targetTables = getTables(JdbcConnectionFactory.getConnectForTarget());
+			log.info(targetTables);
+			log.info(targetSequences);
+			//TODO 未实现
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 	
 	/**
@@ -112,11 +129,24 @@ public class ExportTool {
 		log.info("export sequence finish...");
 	}
 
+	/**
+	 * 取原来数据库的序列对象
+	 * @return
+	 */
 	public List<Sequence> getSequences() {
+		List<Sequence> sequences = Lists.newArrayList();
+		try {
+			sequences = getSequences(JdbcConnectionFactory.getConnect());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return sequences;
+	}
+	
+	public List<Sequence> getSequences(Connection conn) {
 		List<Sequence> sequences = Lists.newArrayList();
 		
 		ResultSet rs = null;
-		Connection conn = null;
 		PreparedStatement stmt = null;
 		final String sql = "select * from all_sequences where SEQUENCE_OWNER = ? order by SEQUENCE_NAME asc";
 		
@@ -146,10 +176,23 @@ public class ExportTool {
 		return sequences;
 	}
 	
+	/**
+	 * 取原来数据库的表对象
+	 * @return
+	 */
 	public List<Table> getTables() {
 		List<Table> tables = Lists.newArrayList();
 		try {
-			Connection conn = JdbcConnectionFactory.getConnect();
+			tables = getTables(JdbcConnectionFactory.getConnect());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return tables;
+	}
+	
+	public List<Table> getTables(Connection conn) {
+		List<Table> tables = Lists.newArrayList();
+		try {
 			DatabaseMetaData dmd = conn.getMetaData();
 			log.info(dmd.getDatabaseProductVersion());
 			ResultSet rs = dmd.getTables(null, schema, null, new String[] {"TABLE"});

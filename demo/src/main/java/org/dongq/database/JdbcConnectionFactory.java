@@ -38,10 +38,18 @@ public class JdbcConnectionFactory {
 	}
 	
 	public static Connection getConnect() throws ClassNotFoundException, SQLException {
-		return DriverManager.getConnection(config.getProperty("jdbc.url"), config.getProperty("jdbc.username"), config.getProperty("jdbc.password"));
+		return DriverManager.getConnection(config.getProperty("jdbc.source.url"), config.getProperty("jdbc.source.username"), config.getProperty("jdbc.source.password"));
 	}
 	
 	public static Connection getConnect(String username, String password) throws ClassNotFoundException, SQLException {
-		return DriverManager.getConnection(config.getProperty("jdbc.url"), username, password);
+		return DriverManager.getConnection(config.getProperty("jdbc.source.url"), username, password);
+	}
+	
+	public static Connection getConnectForSource() throws ClassNotFoundException, SQLException {
+		return DriverManager.getConnection(config.getProperty("jdbc.source.url"), config.getProperty("jdbc.source.username"), config.getProperty("jdbc.source.password"));
+	}
+	
+	public static Connection getConnectForTarget() throws ClassNotFoundException, SQLException {
+		return DriverManager.getConnection(config.getProperty("jdbc.target.url"), config.getProperty("jdbc.target.username"), config.getProperty("jdbc.target.password"));
 	}
 }

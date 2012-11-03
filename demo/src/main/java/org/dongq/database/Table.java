@@ -43,4 +43,12 @@ public class Table {
 		return "Table [name=" + name + ", columns=" + columns + "]";
 	}
 
+	@Override
+	public boolean equals(Object obj) {
+		if (obj instanceof Table) {
+			Table t = (Table) obj;
+			return t.getName().equalsIgnoreCase(name);
+		}
+		return super.equals(obj);
+	}
 }

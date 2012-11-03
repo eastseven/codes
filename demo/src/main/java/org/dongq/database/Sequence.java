@@ -101,4 +101,12 @@ public class Sequence {
 				+ "]";
 	}
 
+	@Override
+	public boolean equals(Object obj) {
+		if (obj instanceof Sequence) {
+			Sequence s = (Sequence) obj;
+			return s.getName().equalsIgnoreCase(name);
+		}
+		return super.equals(obj);
+	}
 }
