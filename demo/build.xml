@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ====================================================================== 
+     2012-11-2 上午10:52:54                                                        
+
+     project    
+     description
+                   
+     eastseven                                                                
+     ====================================================================== -->
+<project name="project" default="default">
+    <description>
+            description
+    </description>
+
+	<property file="src/main/resources/jdbc.properties" />
+	
+    <!-- ================================= 
+          target: default              
+         ================================= -->
+    <target name="default" depends="depends" description="description">
+        <echo>this is default target</echo>
+    </target>
+
+    <!-- - - - - - - - - - - - - - - - - - 
+          target: depends                      
+         - - - - - - - - - - - - - - - - - -->
+    <target name="depends">
+    	<echo>this is depends target</echo>
+    </target>
+
+	<target name="import-data">
+		<sql userid="QUICKRIDE20121102104848" password="QUICKRIDE20121102104848" url="${jdbc.url}" driver="${jdbc.driverClassName}">
+			<classpath>
+				<fileset dir="/Users/eastseven/.m2/repository/com/oracle/ojdbc14/10.2.0.4.0">
+					<filename name="ojdbc14-10.2.0.4.0.jar"/>
+				</fileset>
+			</classpath>
+			
+			<transaction src="${basedir}/sql-script/all-data.sql"></transaction>
+		</sql>
+	</target>
+</project>
