@@ -32,30 +32,46 @@ public class ExportTool {
 	public static final String schema = "QUICKRIDE";
 	
 	public static final String sqlScriptDir = "sql-script";
+	
 	public static final String dataDir = sqlScriptDir + "/data";
 	public static final String tableDir = sqlScriptDir + "/table";
 	public static final String sequenceDir = sqlScriptDir + "/sequence";
+	
 	public static final String databaseFileName = sqlScriptDir + "/database.sql";
+	public static final String tablesFileName = sqlScriptDir + "/all-tables.sql";
+	public static final String sequencesFileName = sqlScriptDir + "/all-sequences.sql";
 	public static final String allDataFileName = sqlScriptDir + "/all-data.sql";
 	
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	
 	public void start() {
+		start(true, true, true);
+	}
+	
+	public void start(boolean exportTable, boolean exportData, boolean exportSequence) {
 		
 		mkdirs();
 		
-		List<Table> tables = getTables();
-		List<Sequence> sequences = getSequences();
-		
 		//导出表、导出数据
-		exportTable(tables);
-		exportData(tables);
-		exportSequence(sequences);
+		if(exportTable) {
+			List<Table> tables = getTables();
+			exportTable(tables);
+			
+			if(exportData) {
+				exportData(tables);
+			}
+		}
+
+		if(exportSequence) {
+			List<Sequence> sequences = getSequences();
+			exportSequence(sequences);
+		}
 		
 		String script = generateDatabaseScript();
 		createDatabaseFile(databaseFileName, script);
 		
-		sync(tables, sequences);
+		//TODO 未实现同步
+		//sync(tables, sequences);
 	}
 	
 	/**
@@ -77,12 +93,18 @@ public class ExportTool {
 	 * 生成建表脚本文件
 	 */
 	public void exportTable(List<Table> tables) {
+		List<String> scripts = Lists.newArrayList();
 		for (Table table : tables) {
 			String filename = table.getFileName();
 			String script = generateTableScript(table);
+			scripts.add(script);
 			createTableFile(filename, script);
 		}
-		
+		try {
+			createFile(tablesFileName, scripts);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		log.info("export table script finish...");
 	}
 
@@ -120,12 +142,20 @@ public class ExportTool {
 	}
 	
 	public void exportSequence(List<Sequence> sequences) {
+		List<String> scripts = Lists.newArrayList();
 		for (Sequence sequence : sequences) {
 			String filename = sequence.getFileName();
 			String script = sequence.getScript();
+			scripts.add(script);
 			createSequenceFile(filename, script);
 		}
-
+		
+		try {
+			createFile(sequencesFileName, scripts);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
 		log.info("export sequence finish...");
 	}
 
@@ -387,6 +417,21 @@ public class ExportTool {
 		BufferedWriter buffer = new BufferedWriter(writer);
 		buffer.write(script);
 		buffer.newLine();
+		IOUtils.closeQuietly(buffer);
+		IOUtils.closeQuietly(writer);
+		long fileSize = FileUtils.sizeOf(file);
+		log.info(file.getAbsolutePath() + " size " + FileUtils.byteCountToDisplaySize(fileSize));
+	}
+	
+	protected void createFile(String filename, List<String> scripts) throws IOException {
+		File file = new File(filename);
+		if(!file.exists()) file.createNewFile();
+		FileWriter writer = new FileWriter(file, true);
+		BufferedWriter buffer = new BufferedWriter(writer);
+		for (String script : scripts) {
+			buffer.write(script);
+			buffer.newLine();
+		}
 		IOUtils.closeQuietly(buffer);
 		IOUtils.closeQuietly(writer);
 		long fileSize = FileUtils.sizeOf(file);
