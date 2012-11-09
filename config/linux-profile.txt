@@ -1,0 +1,18 @@
+# JAVA ENV
+export JAVA_HOME=/usr/java/jdk1.6.0_31
+export PATH=$JAVA_HOME/bin:$PATH
+
+# MAVEN ENV
+export M2_HOME=/usr/java/maven-3.0.4
+export MAVEN_OPTS="$MAVEN_OPTS -Xms256m -Xmx512m -XX:MaxPermSize=128m -XX:ReservedCodeCacheSize=64m"
+export PATH=$M2_HOME/bin:$PATH
+
+#set oracle environment
+export ORACLE_BASE=/home/oracle/oracle
+export ORACLE_HOME=${ORACLE_BASE}/product/10.2.0/db_1
+export ORACLE_SID=dev
+export PATH=$PATH:$ORACLE_HOME/bin:$HOME/bin:.
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ORACLE_HOME/lib:/usr/lib:/usr/local/lib
+export NLS_LANG="Simplified Chinese_china".ZHS16GBK
+export NLS_LANG='american_america.ZHS16GBK'
+set -o vi
