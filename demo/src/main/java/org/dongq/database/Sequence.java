@@ -81,16 +81,19 @@ public class Sequence {
 	}
 	
 	public String getScript() {
-		String script = "create sequence";
-		
-		script += " " + this.name;
+		String script = "";
+		script += " create sequence " + this.name;
 		script += " minvalue " + this.minValue;
 		script += " maxvalue " + this.maxValue.toString();
-		script += " start with " + (this.lastNumber + 2);//避免id重复，以防万一
+		script += " start with 20000" ;//+ (this.lastNumber + 2);//避免id重复，以防万一
 		script += " increment by " + this.incrementBy;
 		if(this.cacheSize == 0) this.cacheSize = 20;
 		script += " cache " + this.cacheSize + ";";
 		return script;
+	}
+	
+	public String getDropScript() {
+		return " drop sequence " + this.name + ";";
 	}
 	
 	@Override
