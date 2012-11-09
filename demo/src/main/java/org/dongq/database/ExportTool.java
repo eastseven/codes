@@ -146,6 +146,7 @@ public class ExportTool {
 		for (Sequence sequence : sequences) {
 			String filename = sequence.getFileName();
 			String script = sequence.getScript();
+			scripts.add(sequence.getDropScript());
 			scripts.add(script);
 			createSequenceFile(filename, script);
 		}
@@ -327,6 +328,7 @@ public class ExportTool {
 			if(column.getDataType() == Types.DATE) continue;
 			if(column.getDataType() == Types.CLOB) continue;
 			if(column.getDataType() == Types.BLOB) continue;
+			if(column.getDataType() == Types.NUMERIC) continue;
 			columnsContent += "("+column.getColumnSize()+")";
 		}
 		
