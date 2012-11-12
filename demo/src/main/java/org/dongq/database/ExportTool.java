@@ -29,7 +29,7 @@ public class ExportTool {
 	private static final Log log = LogFactory.getLog(ExportTool.class);
 	
 	private static final String prefix = ",";
-	public static final String schema = "QUICKRIDE";
+	public static final String schema = "QUICKRIDE";//HR
 	
 	public static final String sqlScriptDir = "sql-script";
 	
@@ -39,6 +39,7 @@ public class ExportTool {
 	
 	public static final String databaseFileName = sqlScriptDir + "/database.sql";
 	public static final String tablesFileName = sqlScriptDir + "/all-tables.sql";
+	public static final String tablesKeyFileName = sqlScriptDir + "/all-tables-key.sql";
 	public static final String sequencesFileName = sqlScriptDir + "/all-sequences.sql";
 	public static final String allDataFileName = sqlScriptDir + "/all-data.sql";
 	
@@ -80,7 +81,7 @@ public class ExportTool {
 	public void sync(List<Table> sourceTables, List<Sequence> sourceSequences) {
 		try {
 			List<Sequence> targetSequences = getSequences(JdbcConnectionFactory.getConnectForTarget());
-			List<Table> targetTables = getTables(JdbcConnectionFactory.getConnectForTarget());
+			List<Table> targetTables = getTables(JdbcConnectionFactory.getConnectForTarget(), schema);
 			log.info(targetTables);
 			log.info(targetSequences);
 			//TODO 未实现
@@ -94,14 +95,29 @@ public class ExportTool {
 	 */
 	public void exportTable(List<Table> tables) {
 		List<String> scripts = Lists.newArrayList();
+		List<String> keys = Lists.newArrayList();
 		for (Table table : tables) {
 			String filename = table.getFileName();
 			String script = generateTableScript(table);
 			scripts.add(script);
+			
+			if(CollectionUtils.isNotEmpty(table.getPrimaryKeys())) {
+				for (PrimarKeyColumn pk : table.getPrimaryKeys()) {
+					keys.add(pk.getScript());
+				}
+			}
+			
+			if(CollectionUtils.isNotEmpty(table.getForeignKeys())) {
+				for(ForeignKeyColumn fk : table.getForeignKeys()) {
+					keys.add(fk.getScript());
+				}
+			}
+			
 			createTableFile(filename, script);
 		}
 		try {
 			createFile(tablesFileName, scripts);
+			createFile(tablesKeyFileName, keys);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -214,14 +230,14 @@ public class ExportTool {
 	public List<Table> getTables() {
 		List<Table> tables = Lists.newArrayList();
 		try {
-			tables = getTables(JdbcConnectionFactory.getConnect());
+			tables = getTables(JdbcConnectionFactory.getConnect(), schema);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		return tables;
 	}
 	
-	public List<Table> getTables(Connection conn) {
+	public List<Table> getTables(Connection conn, String schema) {
 		List<Table> tables = Lists.newArrayList();
 		try {
 			DatabaseMetaData dmd = conn.getMetaData();
@@ -238,20 +254,39 @@ public class ExportTool {
 				for (Table table : tables) {
 					String tableName = table.getName();
 					rs = dmd.getColumns(null, schema, tableName, null);
-					int index = 0;
 					while(rs.next()) {
 						String name = rs.getString("COLUMN_NAME");
 						String typeName = rs.getString("TYPE_NAME");
 						int dataType = rs.getInt("DATA_TYPE");
 						int columnSize = rs.getInt("COLUMN_SIZE");
+						int index = rs.getInt("ORDINAL_POSITION");
 						table.getColumns().add(new Column(index, name, typeName, dataType, columnSize));
-						index++;
+					}
+					
+					//主键
+					//TODO 未考虑联合主键的问题
+					rs = dmd.getPrimaryKeys(null, schema, tableName);
+					while(rs.next()) {
+						String pkName = rs.getString("PK_NAME");
+						String pkColumnName = rs.getString("COLUMN_NAME");
+						int index = rs.getInt("KEY_SEQ");
+						table.getPrimaryKeys().add(new PrimarKeyColumn(index, pkName, tableName, pkColumnName));
+					}
+					//外键
+					rs = dmd.getImportedKeys(null, schema, tableName);
+					while(rs.next()) {
+						int index = rs.getInt("KEY_SEQ");
+						String columnName = rs.getString("FKCOLUMN_NAME");
+						String fkTableName = rs.getString("PKTABLE_NAME");
+						String fkColumnName = rs.getString("PKCOLUMN_NAME");
+						String fkName = rs.getString("FK_NAME");
+						table.getForeignKeys().add(new ForeignKeyColumn(index, fkName, tableName, columnName, fkTableName, fkColumnName));
 					}
 				}
 			}
 			
 			DbUtils.close(rs);
-			DbUtils.close(conn);
+			//DbUtils.close(conn);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

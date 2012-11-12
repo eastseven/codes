@@ -9,7 +9,11 @@ public class Table {
 	private String name;
 
 	private Set<Column> columns = Sets.newLinkedHashSet();
-	
+
+	private Set<PrimarKeyColumn> primaryKeys = Sets.newHashSet();
+
+	private Set<ForeignKeyColumn> foreignKeys = Sets.newHashSet();
+
 	public Table(String name) {
 		this.name = name;
 	}
@@ -30,14 +34,30 @@ public class Table {
 		this.columns = columns;
 	}
 
-	public String getSelectSQL() {
-		return "select * from " + this.name + " order by "+this.columns.iterator().next().getName()+" asc";
+	public Set<PrimarKeyColumn> getPrimaryKeys() {
+		return primaryKeys;
 	}
-	
+
+	public void setPrimaryKeys(Set<PrimarKeyColumn> primaryKeys) {
+		this.primaryKeys = primaryKeys;
+	}
+
+	public Set<ForeignKeyColumn> getForeignKeys() {
+		return foreignKeys;
+	}
+
+	public void setForeignKeys(Set<ForeignKeyColumn> foreignKeys) {
+		this.foreignKeys = foreignKeys;
+	}
+
+	public String getSelectSQL() {
+		return "select * from " + this.name + " order by " + this.columns.iterator().next().getName() + " asc";
+	}
+
 	public String getFileName() {
 		return this.name + ".sql";
 	}
-	
+
 	@Override
 	public String toString() {
 		return "Table [name=" + name + ", columns=" + columns + "]";
