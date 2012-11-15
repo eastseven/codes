@@ -58,9 +58,10 @@ public class ExportTool {
 			List<Table> tables = getTables();
 			exportTable(tables);
 			
-			if(exportData) {
-				exportData(tables);
-			}
+		}
+		if(exportData) {
+			List<Table> tables = getTables();
+			exportData(tables);
 		}
 
 		if(exportSequence) {

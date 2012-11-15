@@ -138,7 +138,7 @@ public class ImportTool {
 			stmt = conn.createStatement();
 			for (String sql : sqls) {
 				stmt.addBatch(sql);
-				log.info("batch sql add : " + sql);
+				//log.info("batch sql add : " + sql);
 			}
 			int[] update = stmt.executeBatch();
 			conn.commit();
