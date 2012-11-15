@@ -32,7 +32,7 @@ public class Main {
 		try {
 			System.out.println("2.导出开发库表及序列对象");
 			exp.exportTable(exp.getTables(JdbcConnectionFactory.getConnectForTarget(), ExportTool.schema));
-			exp.exportSequence(exp.getSequences(JdbcConnectionFactory.getConnectForTarget()));
+			exp.exportSequence(exp.getSequences(JdbcConnectionFactory.getConnectForTarget(), ExportTool.schema));
 			System.out.println("2.导出开发库表及序列对象 完成");
 		} catch (ClassNotFoundException e) {
 			e.printStackTrace();

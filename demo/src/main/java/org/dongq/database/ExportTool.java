@@ -12,6 +12,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Types;
 import java.text.SimpleDateFormat;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -42,8 +43,17 @@ public class ExportTool {
 	public static final String tablesKeyFileName = sqlScriptDir + "/all-tables-key.sql";
 	public static final String sequencesFileName = sqlScriptDir + "/all-sequences.sql";
 	public static final String allDataFileName = sqlScriptDir + "/all-data.sql";
+
+	public static final String tablesAddFileName = sqlScriptDir + "/all-tables-add.sql";//
+	public static final String sequencesAddFileName = sqlScriptDir + "/all-sequences-add.sql";//
 	
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	
+	public static void main(String[] args) {
+		ExportTool exp = new ExportTool();
+		exp.mkdirs();
+		exp.sync();
+	}
 	
 	public void start() {
 		start(true, true, true);
@@ -72,20 +82,88 @@ public class ExportTool {
 		String script = generateDatabaseScript();
 		createDatabaseFile(databaseFileName, script);
 		
-		//TODO 未实现同步
-		//sync(tables, sequences);
+		sync();
 	}
 	
 	/**
-	 * 比较数据库表字段
+	 * 比较数据库表字段,
+	 * target - source = new fields
 	 */
-	public void sync(List<Table> sourceTables, List<Sequence> sourceSequences) {
+	public void sync() {
 		try {
-			List<Sequence> targetSequences = getSequences(JdbcConnectionFactory.getConnectForTarget());
+			log.info("比较数据库表字段 开始");
+			
+			log.info("Sequence:");
+			List<Sequence> sourceSequences = getSequences(JdbcConnectionFactory.getConnectForSource(), schema+"PRODUCT");
+			List<Sequence> targetSequences = getSequences(JdbcConnectionFactory.getConnectForTarget(), schema);
+			log.info("Sequence Source size: " + CollectionUtils.size(sourceSequences) + ", Target size: " + CollectionUtils.size(targetSequences));
+			syncSequences(sourceSequences, targetSequences);
+			
+			log.info("Table:");
+			List<Table> sourceTables = getTables(JdbcConnectionFactory.getConnectForSource(), schema+"PRODUCT"); 
 			List<Table> targetTables = getTables(JdbcConnectionFactory.getConnectForTarget(), schema);
-			log.info(targetTables);
-			log.info(targetSequences);
-			//TODO 未实现
+			log.info("Table Source size: " + CollectionUtils.size(sourceTables) + ", Target size: " + CollectionUtils.size(targetTables));
+			syncTables(sourceTables, targetTables);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			log.info("比较数据库表字段 结束");
+		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	public void syncTables(List<Table> sourceTables, List<Table> targetTables) {
+		try {
+			List<String> scripts = Lists.newArrayList();
+			//新增的table
+			//TODO 暂时不考虑主外键的问题
+			Collection<Table> tables = CollectionUtils.subtract(targetTables, sourceTables);
+			if(CollectionUtils.isNotEmpty(tables)) {
+				for (Table table : tables) {
+					String script = generateTableScript(table);
+					scripts.add(script);
+					log.info(script);
+				}
+			}
+			
+			//新增的column
+			for (Table sourceTable : sourceTables) {
+				int index = targetTables.indexOf(sourceTable);
+				if(index != -1) {
+					Table targetTable = targetTables.get(index);
+					Set<Column> targetColumns = targetTable.getColumns();
+					Set<Column> sourceColumns = sourceTable.getColumns();
+					
+					Collection<Column> columns = CollectionUtils.subtract(targetColumns, sourceColumns);
+					if(CollectionUtils.isNotEmpty(columns)) {
+						for (Column column : columns) {
+							scripts.add(column.getAddScript());
+							log.info(column.getAddScript());
+						}
+					}
+				}
+			}
+			
+			if(CollectionUtils.isNotEmpty(scripts)) createFile(tablesAddFileName, scripts);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	public void syncSequences(List<Sequence> sourceSequences, List<Sequence> targetSequences) {
+		try {
+			Collection<Sequence> sequences = CollectionUtils.subtract(targetSequences, sourceSequences);
+			if(CollectionUtils.isNotEmpty(sequences)) {
+				List<String> scripts = Lists.newArrayList();
+				for (Sequence sequence : sequences) {
+					String script = sequence.getScript();
+					scripts.add(script);
+				}
+				
+				createFile(sequencesAddFileName, scripts);
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -184,14 +262,14 @@ public class ExportTool {
 	public List<Sequence> getSequences() {
 		List<Sequence> sequences = Lists.newArrayList();
 		try {
-			sequences = getSequences(JdbcConnectionFactory.getConnect());
+			sequences = getSequences(JdbcConnectionFactory.getConnect(), schema);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		return sequences;
 	}
 	
-	public List<Sequence> getSequences(Connection conn) {
+	public List<Sequence> getSequences(Connection conn, String schema) {
 		List<Sequence> sequences = Lists.newArrayList();
 		
 		ResultSet rs = null;
@@ -199,7 +277,7 @@ public class ExportTool {
 		final String sql = "select * from all_sequences where SEQUENCE_OWNER = ? order by SEQUENCE_NAME asc";
 		
 		try {
-			conn = JdbcConnectionFactory.getConnect();
+			//conn = JdbcConnectionFactory.getConnect();
 			stmt = conn.prepareStatement(sql);
 			stmt.setString(1, schema);
 			rs = stmt.executeQuery();
@@ -261,7 +339,7 @@ public class ExportTool {
 						int dataType = rs.getInt("DATA_TYPE");
 						int columnSize = rs.getInt("COLUMN_SIZE");
 						int index = rs.getInt("ORDINAL_POSITION");
-						table.getColumns().add(new Column(index, name, typeName, dataType, columnSize));
+						table.getColumns().add(new Column(index, name, typeName, dataType, columnSize, tableName));
 					}
 					
 					//主键
@@ -361,10 +439,15 @@ public class ExportTool {
 		Set<Column> columns = table.getColumns();
 		for (Column column : columns) {
 			columnsContent += "," + column.getName() + " " + column.getTypeName();
+			
 			if(column.getDataType() == Types.DATE) continue;
 			if(column.getDataType() == Types.CLOB) continue;
 			if(column.getDataType() == Types.BLOB) continue;
+			if(column.getDataType() == Types.DECIMAL) continue;
 			if(column.getDataType() == Types.NUMERIC) continue;
+			if(column.getDataType() == Types.INTEGER)  continue;
+			if(column.getDataType() == Types.BIGINT)  continue;
+			
 			columnsContent += "("+column.getColumnSize()+")";
 		}
 		
