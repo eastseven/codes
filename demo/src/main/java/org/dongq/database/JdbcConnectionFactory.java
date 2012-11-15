@@ -45,6 +45,10 @@ public class JdbcConnectionFactory {
 		return DriverManager.getConnection(config.getProperty("jdbc.source.url"), username, password);
 	}
 	
+	public static Connection getConnect(String url, String username, String password) throws ClassNotFoundException, SQLException {
+		return DriverManager.getConnection(url, username, password);
+	}
+	
 	public static Connection getConnectForSource() throws ClassNotFoundException, SQLException {
 		return DriverManager.getConnection(config.getProperty("jdbc.source.url"), config.getProperty("jdbc.source.username"), config.getProperty("jdbc.source.password"));
 	}
