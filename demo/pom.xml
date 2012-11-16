@@ -72,6 +72,11 @@
 			<version>13.0.1</version>
 		</dependency>
 		
-		
+		<!-- ant -->
+		<dependency>
+			<groupId>ant</groupId>
+			<artifactId>ant</artifactId>
+			<version>1.7.0</version>
+		</dependency>
 	</dependencies>
 </project>
