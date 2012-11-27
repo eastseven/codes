@@ -3,10 +3,11 @@
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
-	<pluginGroups>
+	<pluginGroups>	
 		<pluginGroup>org.apache.maven.plugins</pluginGroup>
 		<pluginGroup>org.codehaus.mojo</pluginGroup>
 		<pluginGroup>org.apache.tomcat.maven</pluginGroup>
+		<pluginGroup>org.sonatype.plugins</pluginGroup>
 		<pluginGroup>com.jayway.maven.plugins.android.generation2</pluginGroup>
 	</pluginGroups>
 
@@ -14,9 +15,24 @@
 	</proxies>
 
 	<servers>
+		<server>
+			<id>releases</id>
+			<username>admin</username>
+			<password>admin123</password>
+		</server>
+		<server>
+                        <id>snapshots</id>
+                        <username>admin</username>
+                        <password>admin123</password>
+                </server>
 	</servers>
 
 	<mirrors>
+		<mirror>
+			<id>nexus</id>
+			<mirrorOf>*</mirrorOf>
+			<url>http://192.168.1.101:8081/nexus/content/groups/public</url>
+		</mirror>
 	</mirrors>
 
 	<profiles>
@@ -54,9 +70,28 @@
 				</pluginRepository>
 			</pluginRepositories>
 		</profile>
+		<profile>
+                        <id>nexus</id>
+                        <repositories>
+                                <repository>
+                                        <id>central</id>
+                                        <url>http://central/</url>
+					<releases><enabled>true</enabled></releases>
+					<snapshots><enabled>true</enabled></snapshots>
+                                </repository>
+                        </repositories>
+                        <pluginRepositories>
+                                <pluginRepository>
+                                	<id>central</id>
+                                        <url>http://central/</url>
+                                        <releases><enabled>true</enabled></releases>
+                                        <snapshots><enabled>true</enabled></snapshots>
+				</pluginRepository>
+                        </pluginRepositories>
+                </profile>
 	</profiles>
 
 	<activeProfiles>
-		<activeProfile>QuickRide</activeProfile>
+		<activeProfile>nexus</activeProfile>
 	</activeProfiles>
 </settings>
